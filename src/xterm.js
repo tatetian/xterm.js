@@ -1501,7 +1501,7 @@
         this._fullRefreshNext = false // reset lock
       }
 
-      var x, y, i, line, out, ch, ch_width, width, data, attr, bg, fg, flags, row, parent, focused = document.activeElement;
+      var x, y, i, line, out, ch, ch_width, ch_url, width, data, attr, url, bg, fg, flags, row, parent, focused = document.activeElement;
 
       // If this is a big refresh, remove the terminal rows from the DOM for faster calculations
       if (end - start >= this.rows / 2) {
@@ -1534,16 +1534,23 @@
         }
 
         attr = this.defAttr;
+        url = undefined;
         i = 0;
 
         for (; i < width; i++) {
           data = line[i][0];
           ch = line[i][1];
           ch_width = line[i][2];
+          ch_url = line[i][3];
+
           if (!ch_width)
             continue;
 
           if (i === x) data = -1;
+
+          if (url !== undefined && url !== ch_url) {
+            out += '</a>';
+          }
 
           if (data !== attr) {
             if (attr !== this.defAttr) {
@@ -1627,6 +1634,10 @@
             }
           }
 
+          if (ch_url !== undefined && ch_url !== url) {
+            out += '<a href="' + ch_url + '">';
+          }
+
           switch (ch) {
             case '&':
               out += '&amp;';
@@ -1647,8 +1658,12 @@
           }
 
           attr = data;
+          url = ch_url;
         }
 
+        if (url !== undefined) {
+          out += '</a>';
+        }
         if (attr !== this.defAttr) {
           out += '</span>';
         }
@@ -1900,20 +1915,20 @@
                       if (removed[2]===0
                           && this.lines[row][this.cols-2]
                           && this.lines[row][this.cols-2][2]===2)
-                        this.lines[row][this.cols-2] = [this.curAttr, ' ', 1];
+                        this.lines[row][this.cols-2] = [this.curAttr, ' ', 1, this.url];
 
                       // insert empty cell at cursor
-                      this.lines[row].splice(this.x, 0, [this.curAttr, ' ', 1]);
+                      this.lines[row].splice(this.x, 0, [this.curAttr, ' ', 1, this.url]);
                     }
                   }
 
-                  this.lines[row][this.x] = [this.curAttr, ch, ch_width];
+                  this.lines[row][this.x] = [this.curAttr, ch, ch_width, this.url];
                   this.x++;
                   this.updateRange(this.y);
 
                   // fullwidth char - set next cell width to zero and advance cursor
                   if (ch_width===2) {
-                    this.lines[row][this.x] = [this.curAttr, '', 0];
+                    this.lines[row][this.x] = [this.curAttr, '', 0, this.url];
                     this.x++;
                   }
                 }
@@ -2804,6 +2819,17 @@
     };
 
     /**
+     * Writes a link to the terminal
+     * @param {string} text The name of the link.
+     * @param {string} url The url of the link.
+     */
+    Terminal.prototype.writeLink = function(text, url) {
+      this.url = url;
+      this.write(text);
+      this.url = undefined;
+    };
+
+    /**
      * Attaches a custom keydown handler which is run before keys are processed, giving consumers of
      * xterm.js ultimate control as to what keys should be processed by the terminal and what keys
      * should not.
@@ -3188,7 +3214,7 @@
       // resize rows
       j = this.rows;
       addToY = 0;
-      if (j < y) {
+      if (j < y) { // expand height
         el = this.element;
         while (j++ < y) {
           // y is rows, not this.y
@@ -3212,7 +3238,7 @@
             this.insertRow();
           }
         }
-      } else { // (j > y)
+      } else { // shrink height (j > y)
         while (j-- > y) {
           if (this.lines.length > y + this.ybase) {
             if (this.lines.length > this.ybase + this.y + 1) {
