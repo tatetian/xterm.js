@@ -1501,7 +1501,7 @@
         this._fullRefreshNext = false // reset lock
       }
 
-      var x, y, i, line, out, ch, ch_width, ch_url, width, data, attr, url, bg, fg, flags, row, parent, focused = document.activeElement;
+      var x, y, i, line, out, ch, ch_width, ch_tag, width, data, attr, tag, bg, fg, flags, row, parent, focused = document.activeElement;
 
       // If this is a big refresh, remove the terminal rows from the DOM for faster calculations
       if (end - start >= this.rows / 2) {
@@ -1534,22 +1534,22 @@
         }
 
         attr = this.defAttr;
-        url = undefined;
+        tag = undefined;
         i = 0;
 
         for (; i < width; i++) {
           data = line[i][0];
           ch = line[i][1];
           ch_width = line[i][2];
-          ch_url = line[i][3];
+          ch_tag = line[i][3];
 
           if (!ch_width)
             continue;
 
           if (i === x) data = -1;
 
-          if (url !== undefined && url !== ch_url) {
-            out += '</a>';
+          if (tag !== undefined && tag !== ch_tag) {
+            out += '</' + tag.name + '>';
           }
 
           if (data !== attr) {
@@ -1634,8 +1634,16 @@
             }
           }
 
-          if (ch_url !== undefined && ch_url !== url) {
-            out += '<a href="' + ch_url + '">';
+          if (ch_tag !== undefined && ch_tag !== tag) {
+            var tagName = ch_tag.name;
+            var tagAttrs = ch_tag.attrs;
+            out += '<' + tagName;
+            for (var attrName in tagAttrs) {
+                if (!tagAttrs.hasOwnProperty(attrName)) continue;
+                var attrVal = tagAttrs[attrName];
+                out += ' ' + attrName + '="' + attrVal + '"';
+            }
+            out += '>'
           }
 
           switch (ch) {
@@ -1658,11 +1666,11 @@
           }
 
           attr = data;
-          url = ch_url;
+          tag = ch_tag;
         }
 
-        if (url !== undefined) {
-          out += '</a>';
+        if (tag !== undefined) {
+          out += '</' + tag.name + '>';
         }
         if (attr !== this.defAttr) {
           out += '</span>';
@@ -1915,20 +1923,20 @@
                       if (removed[2]===0
                           && this.lines[row][this.cols-2]
                           && this.lines[row][this.cols-2][2]===2)
-                        this.lines[row][this.cols-2] = [this.curAttr, ' ', 1, this.url];
+                        this.lines[row][this.cols-2] = [this.curAttr, ' ', 1, this.tag];
 
                       // insert empty cell at cursor
-                      this.lines[row].splice(this.x, 0, [this.curAttr, ' ', 1, this.url]);
+                      this.lines[row].splice(this.x, 0, [this.curAttr, ' ', 1, this.tag]);
                     }
                   }
 
-                  this.lines[row][this.x] = [this.curAttr, ch, ch_width, this.url];
+                  this.lines[row][this.x] = [this.curAttr, ch, ch_width, this.tag];
                   this.x++;
                   this.updateRange(this.y);
 
                   // fullwidth char - set next cell width to zero and advance cursor
                   if (ch_width===2) {
-                    this.lines[row][this.x] = [this.curAttr, '', 0, this.url];
+                    this.lines[row][this.x] = [this.curAttr, '', 0, this.tag];
                     this.x++;
                   }
                 }
@@ -2819,14 +2827,23 @@
     };
 
     /**
-     * Writes a link to the terminal
-     * @param {string} text The name of the link.
-     * @param {string} url The url of the link.
+     * Writes a text within a HTML tag.
+     *
+     * For example, to write a link
+     *
+     *      term.writeWithinTag("this is a link", {
+     *          "name": "a",
+     *          "attrs": {
+     *              "href": "https://hostname/path"
+     *          });
+     *
+     * @param {string} text The text displayed on terminal
+     * @param {string} tag The enclosing HTML tag
      */
-    Terminal.prototype.writeLink = function(text, url) {
-      this.url = url;
+    Terminal.prototype.writeWithinTag = function(text, tag) {
+      this.tag = tag;
       this.write(text);
-      this.url = undefined;
+      this.tag = undefined;
     };
 
     /**
